@@ -6,7 +6,7 @@ use anchor_spl::{
 
 use metaplex_token_metadata;
 
-declare_id!("HXu9ZCMB6AsL9s3yV76H72T3cZbKc6UxZA4oebaUwGy7");
+declare_id!("BtA5ED73poN5fpDiprBfGcp7LrA75UPY73WADzLuMPUq");
 
 #[program]
 pub mod quidproquo {
@@ -16,13 +16,12 @@ pub mod quidproquo {
         ctx: Context<Initialize>,
         _data_bump: u8,
         mk_cut: u64,
-        rent_cut: u64
     ) -> ProgramResult {
         let data_acc = &mut ctx.accounts.data_acc;
         data_acc.market_place = ctx.accounts.beneficiary.key();
         data_acc.rent = ctx.accounts.rent_account.key();
         data_acc.market_place_cut = mk_cut;
-        data_acc.rent_cut = rent_cut;
+        data_acc.pda_rent = ctx.accounts.pda_rent.key();
         Ok(())
     }
 
@@ -33,7 +32,9 @@ pub mod quidproquo {
         ctx: Context<Make>,
         escrowed_maker_tokens_bump: u8,
         offer_bump: u8,
+        offer_made_on: i64,
         offer_taker_amount: u64,
+       
     ) -> ProgramResult {
         // Store some state about the offer being made. We'll need this later if
         // the offer gets accepted or cancelled.
@@ -41,21 +42,23 @@ pub mod quidproquo {
         offer.maker = ctx.accounts.offer_maker.key();
         offer.taker_amount = offer_taker_amount;
         offer.escrowed_maker_tokens_bump = escrowed_maker_tokens_bump;
+        offer.offer_made_on = Some(offer_made_on);
+        offer.expired = false;
 
-        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-            ctx.accounts.offer_maker.key,
-            ctx.accounts.tokenrent.key,
-            10385941,
-        );
+        // let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+        //     ctx.accounts.offer_maker.key,
+        //     ctx.accounts.tokenrent.key,
+        //     10385941,
+        // );
 
-        anchor_lang::solana_program::program::invoke(
-            &transfer_ix,
-            &[
-                ctx.accounts.offer_maker.to_account_info(),
-                ctx.accounts.tokenrent.to_account_info(),
-                ctx.accounts.offer.to_account_info(),
-            ],
-        )?;
+        // anchor_lang::solana_program::program::invoke(
+        //     &transfer_ix,
+        //     &[
+        //         ctx.accounts.offer_maker.to_account_info(),
+        //         ctx.accounts.tokenrent.to_account_info(),
+        //         ctx.accounts.offer.to_account_info(),
+        //     ],
+        // )?;
 
         // Transfer the maker's tokens to the escrow account.
         anchor_spl::token::transfer(
@@ -72,14 +75,34 @@ pub mod quidproquo {
         )
     }
 
+    pub fn update_offer(ctx: Context<Update>,  _offer_bump:u8, offer_made_on: i64, updated_offer_amount: u64, ) -> ProgramResult {
+
+        msg!("At the start of update_offer");
+        let offer = &mut ctx.accounts.offer;
+
+        
+        offer.taker_amount = updated_offer_amount;
+        msg!("Amount updated to {}", updated_offer_amount);
+        Ok(())
+    }
 
 
     // Accept an offer by providing the right amount + kind of tokens. This
     // unlocks the tokens escrowed by the offer maker.
-    pub fn accept(ctx: Context<Accept>, _offer_bump:u8) -> ProgramResult {
+    pub fn accept(ctx: Context<Accept>, _offer_bump:u8, offer_made_on:i64, stick_bump:u8) -> ProgramResult {
         
-       
+        let offer = &mut ctx.accounts.offer;
+        offer.expired = true;
        let mut taker_amount = ctx.accounts.offer.taker_amount;
+       let stick = &mut ctx.accounts.stick;
+
+       stick.maker = *ctx.accounts.offer_maker.key;
+       stick.taker = *ctx.accounts.offer_taker.key;
+       stick.mint = *ctx.accounts.maker_mint.to_account_info().key;
+       stick.offer_made_on = Some(offer_made_on);
+
+
+
        // Multi by 10
        let market_cut = ctx.accounts.data_acc.market_place_cut * taker_amount / 1000;
        let sfb = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account)?.data.seller_fee_basis_points;
@@ -90,20 +113,20 @@ pub mod quidproquo {
             return Err(ProgramError::Custom(0x1));
         }
         
-        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-            ctx.accounts.offer_taker.key,
-            ctx.accounts.tokenrent.key,
-            10385941,
-        );
+        // let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+        //     ctx.accounts.offer_taker.key,
+        //     ctx.accounts.tokenrent.key,
+        //     10385941,
+        // );
 
-        anchor_lang::solana_program::program::invoke(
-            &transfer_ix,
-            &[
-                ctx.accounts.offer_taker.to_account_info(),
-                ctx.accounts.tokenrent.to_account_info(),
-                ctx.accounts.offer.to_account_info(),
-            ],
-        )?;
+        // anchor_lang::solana_program::program::invoke(
+        //     &transfer_ix,
+        //     &[
+        //         ctx.accounts.offer_taker.to_account_info(),
+        //         ctx.accounts.tokenrent.to_account_info(),
+        //         ctx.accounts.offer.to_account_info(),
+        //     ],
+        // )?;
 
         let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
             ctx.accounts.offer_taker.key,
@@ -289,26 +312,29 @@ pub mod quidproquo {
 
     }
 
-    pub fn cancel(ctx: Context<Cancel>, _offer_bump:u8) -> ProgramResult {
+    pub fn cancel(ctx: Context<Cancel>, _offer_bump:u8, offer_made_on: i64) -> ProgramResult {
 
         if *ctx.accounts.tokenrent.key != ctx.accounts.data_acc.rent {
             return Err(ProgramError::Custom(0x1));
         }
 
-        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-            ctx.accounts.offer_maker.key,
-            ctx.accounts.tokenrent.key,
-            10385941,
-        );
+        let offer = &mut ctx.accounts.offer;
+        offer.expired = true;
 
-        anchor_lang::solana_program::program::invoke(
-            &transfer_ix,
-            &[
-                ctx.accounts.offer_maker.to_account_info(),
-                ctx.accounts.tokenrent.to_account_info(),
-                ctx.accounts.offer.to_account_info(),
-            ],
-        )?;
+        // let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+        //     ctx.accounts.offer_maker.key,
+        //     ctx.accounts.tokenrent.key,
+        //     10385941,
+        // );
+
+        // anchor_lang::solana_program::program::invoke(
+        //     &transfer_ix,
+        //     &[
+        //         ctx.accounts.offer_maker.to_account_info(),
+        //         ctx.accounts.tokenrent.to_account_info(),
+        //         ctx.accounts.offer.to_account_info(),
+        //     ],
+        // )?;
 
 
         anchor_spl::token::transfer(
@@ -345,7 +371,29 @@ pub mod quidproquo {
             ]],
         ))
     }
+
+    pub fn close_offer_pda(ctx: Context<CloseOfferPDA>, _offer_bump:u8, _offer_made_on: i64) -> ProgramResult {
+
+        if ctx.accounts.offer.expired != true {
+           return Err(ProgramError::Custom(0x8)); 
+        }
+        if *ctx.accounts.pda_rent.key != ctx.accounts.data_acc.pda_rent {
+            return Err(ProgramError::Custom(0x11));
+        }
+
+        Ok(())
+    }
+
+    pub fn close_stick_pda(ctx: Context<CloseOfferPDA>, _stick_bump:u8, _offer_made_on: i64) -> ProgramResult {
+
+        if *ctx.accounts.pda_rent.key != ctx.accounts.data_acc.pda_rent {
+            return Err(ProgramError::Custom(0x11));
+        }
+
+        Ok(())
+    }
 }
+
 
 #[account]
 pub struct Data {
@@ -356,7 +404,8 @@ pub struct Data {
 
     pub rent: Pubkey,
 
-    pub rent_cut: u64,
+    pub pda_rent: Pubkey,
+
 }
 
 #[account]
@@ -366,18 +415,35 @@ pub struct Offer {
     pub maker: Pubkey,
     
     pub taker_amount: u64,
+
+    pub mint: Pubkey,
     // When the maker makes their offer, we store their offered tokens in an
     // escrow account that lives at a program-derived address, with seeds given
     // by the `Offer` account's address. Storing the corresponding bump here
     // means the client doesn't have to keep passing it.
     pub escrowed_maker_tokens_bump: u8,
+
+    pub offer_made_on: Option<i64>,
+
+    pub expired: bool
+}
+
+#[account]
+pub struct Stick {
+    pub maker: Pubkey,
+
+    pub mint: Pubkey,
+
+    pub taker: Pubkey,
+
+    pub offer_made_on: Option<i64>,
 }
 
 #[derive(Accounts)]
 #[instruction(data_bump: u8)]
 
 pub struct Initialize<'info> {
-    #[account(init, payer=payer, seeds = [b"data".as_ref()], bump = data_bump, space = 8 + 32 + 8 + 32 + 8)]
+    #[account(init, payer=payer, seeds = [b"data".as_ref()], bump = data_bump, space = 8 + 32 + 8 + 32 + 64 + 8)]
     pub data_acc: Account<'info, Data>,
 
     #[account(mut)]
@@ -394,12 +460,14 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
+    pub pda_rent: AccountInfo<'info>,
+
 }
 
 #[derive(Accounts)]
-#[instruction(escrowed_maker_tokens_bump: u8, offer_bump:u8)]
+#[instruction(escrowed_maker_tokens_bump: u8, offer_bump:u8, offer_made_on:i64)]
 pub struct Make<'info> {
-    #[account(init, payer = offer_maker, seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref()], bump = offer_bump,  space = 8 + 32 + 8 + 1)]
+    #[account(init, payer = offer_maker, seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()], bump = offer_bump,  space = 950)]
     pub offer: Account<'info, Offer>,
 
     #[account(mut)]
@@ -435,19 +503,52 @@ pub struct Make<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(offer_bump:u8)]
+#[instruction(offer_bump:u8, offer_made_on:i64)]
+pub struct Update<'info> {
+
+    #[account(
+        mut,
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
+        bump = offer_bump,
+        // make sure the offer_maker account really is whoever made the offer!
+        constraint = offer.maker == *offer_maker.key,
+    )]
+    pub offer: Account<'info, Offer>,
+
+    #[account(mut)]
+    pub offer_maker: Signer<'info>,
+
+    pub maker_mint: Account<'info, Mint>,
+  
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+
+    #[account(mut)]
+    pub tokenrent: AccountInfo<'info>
+}
+
+
+#[derive(Accounts)]
+#[instruction(offer_bump:u8, offer_made_on:i64, stick_bump:u8)]
 pub struct Accept<'info> {
     #[account(
         mut,
-        seeds = [offer_maker.key.as_ref(), maker_mint.to_account_info().key.as_ref()],
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = offer_bump,
         // make sure the offer_maker account really is whoever made the offer!
         constraint = offer.maker == *offer_maker.key,
         // at the end of the instruction, close the offer account (don't need it
         // anymore) and send its rent back to the offer_maker
-        close = offer_maker
     )]
     pub offer: Box<Account<'info, Offer>>,
+
+    #[account(init, 
+        payer = offer_taker, 
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_taker.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()], bump = stick_bump,  space = 950)]
+    pub stick: Box<Account<'info, Stick>>,
+
+
 
     #[account(
         mut,
@@ -503,17 +604,16 @@ pub struct Accept<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(offer_bump:u8)]
+#[instruction(offer_bump:u8, offer_made_on:i64)]
 pub struct Cancel<'info> {
     #[account(
         mut,
-        seeds = [offer_maker.key.as_ref(), maker_mint.to_account_info().key.as_ref()],
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = offer_bump,
         // make sure the offer_maker account really is whoever made the offer!
         constraint = offer.maker == *offer_maker.key,
         // at the end of the instruction, close the offer account (don't need it
         // anymore) and send its rent lamports back to the offer_maker
-        close = offer_maker
     )]
     pub offer: Account<'info, Offer>,
 
@@ -545,4 +645,66 @@ pub struct Cancel<'info> {
 
     #[account(mut)]
     pub tokenrent: AccountInfo<'info>
+}
+
+
+#[derive(Accounts)]
+#[instruction(offer_bump:u8, offer_made_on:i64)]
+pub struct CloseOfferPDA<'info> {
+    #[account(
+        mut,
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
+        bump = offer_bump,
+        // make sure the offer_maker account really is whoever made the offer!
+        // at the end of the instruction, close the offer account (don't need it
+        // anymore) and send its rent lamports back to the offer_maker
+        close = pda_rent,
+    )]
+    pub offer: Account<'info, Offer>,
+
+    #[account(mut)]
+    // the offer_maker needs to sign if they really want to cancel their offer
+    pub offer_maker: AccountInfo<'info>,
+
+    pub maker_mint: Account<'info, Mint>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+
+    pub data_acc: Account<'info, Data>,
+
+    #[account(mut)]
+    pub pda_rent: AccountInfo<'info>
+}
+
+
+#[derive(Accounts)]
+#[instruction(stick_bump:u8, offer_made_on:i64)]
+pub struct CloseStickPDA<'info> {
+    #[account(
+        mut,
+        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_taker.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
+        bump = stick_bump,
+        // make sure the offer_maker account really is whoever made the offer!
+        // at the end of the instruction, close the offer account (don't need it
+        // anymore) and send its rent lamports back to the offer_maker
+        close = pda_rent,
+    )]
+    pub stick: Account<'info, Stick>,
+
+    #[account(mut)]
+    // the offer_maker needs to sign if they really want to cancel their offer
+    pub offer_maker: AccountInfo<'info>,
+
+    pub offer_taker: AccountInfo<'info>,
+
+    pub maker_mint: Account<'info, Mint>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+
+    pub data_acc: Account<'info, Data>,
+
+    #[account(mut)]
+    pub pda_rent: AccountInfo<'info>
 }
