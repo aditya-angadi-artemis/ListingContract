@@ -3,10 +3,10 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount},
 };
-
+use std::panic;
 use metaplex_token_metadata;
 
-declare_id!("FD8YuV6Fujt2eYKuXjwKLqZLj746MnELLW1YeZizPZN9");
+declare_id!("8TmxZ2fp2a4bcpGL2asTGn5oSk1TEuWnxwHkDN13k137");
 
 #[program]
 pub mod quidproquo {
@@ -91,6 +91,7 @@ pub mod quidproquo {
     // unlocks the tokens escrowed by the offer maker.
     pub fn accept(ctx: Context<Accept>, _offer_bump:u8, offer_made_on:i64, stick_bump:u8) -> ProgramResult {
         
+        
         let offer = &mut ctx.accounts.offer;
         offer.expired = true;
        let mut taker_amount = ctx.accounts.offer.taker_amount;
@@ -105,7 +106,27 @@ pub mod quidproquo {
 
        // It is divide by 1000 since market place cut is already multiplied  by 10
        let market_cut = ctx.accounts.data_acc.market_place_cut * taker_amount / 1000;
-       let sfb = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account)?.data.seller_fee_basis_points;
+       
+       let mut sfb:u16 = 0; 
+       //owned by system program
+       if ctx.accounts.token_metadata_account.owner == ctx.accounts.system_program.key && ctx.accounts.token_metadata_account.lamports() == 0 {
+            sfb = 0;
+       } else {
+            let result = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account);
+      
+           
+            match result {
+                Ok(metadata) => {
+                    sfb = metadata.data.seller_fee_basis_points;
+                 
+                }
+                 Err(e) => {
+                     sfb = 0;
+                 
+                }
+            }
+        }
+       //let sfb = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account)?.data.seller_fee_basis_points;
        let sfb_cut = sfb as u64 * taker_amount / 10000;
        taker_amount = taker_amount - (market_cut + sfb_cut);
 
