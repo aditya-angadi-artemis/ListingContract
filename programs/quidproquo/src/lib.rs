@@ -6,7 +6,7 @@ use anchor_spl::{
 
 use metaplex_token_metadata;
 
-declare_id!("E8XDDpz2ZDPEfW39HcMJ142opUpa77KYTRUtF6kq3nrU");
+declare_id!("FD8YuV6Fujt2eYKuXjwKLqZLj746MnELLW1YeZizPZN9");
 
 #[program]
 pub mod quidproquo {
@@ -21,6 +21,12 @@ pub mod quidproquo {
         data_acc.market_place = ctx.accounts.beneficiary.key();
         data_acc.market_place_cut = mk_cut;
         data_acc.pda_rent = ctx.accounts.pda_rent.key();
+
+        let backup_data_acc = &mut ctx.accounts.backup_data_acc;
+        backup_data_acc.market_place = ctx.accounts.beneficiary.key();
+        backup_data_acc.market_place_cut = mk_cut;
+        backup_data_acc.pda_rent = ctx.accounts.pda_rent.key();
+
         Ok(())
     }
 
@@ -329,21 +335,21 @@ pub mod quidproquo {
         ))
     }
 
-    pub fn close_offer_pda(ctx: Context<CloseOfferPDA>, _offer_bump:u8, _data_bump:u8, _offer_made_on: i64) -> ProgramResult {
+    pub fn close_offer_pda(ctx: Context<CloseOfferPDA>) -> ProgramResult {
 
         if ctx.accounts.offer.expired != true {
            return Err(ProgramError::Custom(0x8)); 
         }
-        if *ctx.accounts.pda_rent.key != ctx.accounts.data_acc.pda_rent {
+        if *ctx.accounts.pda_rent.key != ctx.accounts.backup_data_acc.pda_rent {
             return Err(ProgramError::Custom(0x11));
         }
 
         Ok(())
     }
 
-    pub fn close_stick_pda(ctx: Context<CloseOfferPDA>, _stick_bump:u8, _data_bump:u8,  _offer_made_on: i64) -> ProgramResult {
+    pub fn close_stick_pda(ctx: Context<CloseStickPDA>) -> ProgramResult {
 
-        if *ctx.accounts.pda_rent.key != ctx.accounts.data_acc.pda_rent {
+        if *ctx.accounts.pda_rent.key != ctx.accounts.backup_data_acc.pda_rent {
             return Err(ProgramError::Custom(0x11));
         }
 
@@ -403,6 +409,9 @@ pub struct Initialize<'info> {
     #[account(init, payer=payer, seeds = [b"data".as_ref()], bump = data_bump, space = 8 + 32 + 8 + 32 + 64 + 8)]
     pub data_acc: Account<'info, Data>,
 
+    #[account(init, payer=payer, seeds = [b"backup_data".as_ref()], bump, space = 8 + 32 + 8 + 32 + 64 + 8)]
+    pub backup_data_acc: Account<'info, Data>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -423,7 +432,7 @@ pub struct Make<'info> {
     #[account(init, payer = offer_maker, 
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()], 
         bump = offer_bump,  
-        space = 950)]
+        space = 650)]
     pub offer: Account<'info, Offer>,
 
     #[account(mut)]
@@ -498,7 +507,7 @@ pub struct Accept<'info> {
         payer = offer_taker, 
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_taker.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = stick_bump,
-        space = 750)]
+        space = 1050)]
     pub stick: Box<Account<'info, Stick>>,
 
 
@@ -597,28 +606,24 @@ pub struct Cancel<'info> {
 
 
 #[derive(Accounts)]
-#[instruction(offer_bump:u8, data_bump:u8, offer_made_on:i64)]
+#[instruction()]
 pub struct CloseOfferPDA<'info> {
     #[account(
         mut,
-        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
-        bump = offer_bump,
+        seeds = [offer.maker.as_ref(), offer.mint.as_ref(), offer.offer_made_on.to_be_bytes().as_ref()],
+        bump,
         // make sure the offer_maker account really is whoever made the offer!
         // at the end of the instruction, close the offer account (don't need it
         // anymore) and send its rent lamports back to the offer_maker
         close = pda_rent,
     )]
     pub offer: Account<'info, Offer>,
-    // the offer_maker needs to sign if they really want to cancel their offer
-    pub offer_maker: AccountInfo<'info>,
-
-    pub maker_mint: Account<'info, Mint>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
-    #[account(seeds = [b"data".as_ref()], bump = data_bump)]
-    pub data_acc: Account<'info, Data>,
+    #[account(seeds = [b"backup_data".as_ref()], bump)]
+    pub backup_data_acc: Account<'info, Data>,
 
     #[account(mut)]
     pub pda_rent: AccountInfo<'info>
@@ -626,12 +631,12 @@ pub struct CloseOfferPDA<'info> {
 
 
 #[derive(Accounts)]
-#[instruction(stick_bump:u8, data_bump:u8, offer_made_on:i64)]
+#[instruction()]
 pub struct CloseStickPDA<'info> {
     #[account(
         mut,
-        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_taker.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
-        bump = stick_bump,
+        seeds = [stick.maker.as_ref(), stick.mint.as_ref(), stick.taker.as_ref(), stick.offer_made_on.to_be_bytes().as_ref()],
+        bump,
         // make sure the offer_maker account really is whoever made the offer!
         // at the end of the instruction, close the offer account (don't need it
         // anymore) and send its rent lamports back to the offer_maker
@@ -639,19 +644,11 @@ pub struct CloseStickPDA<'info> {
     )]
     pub stick: Account<'info, Stick>,
 
-    #[account(mut)]
-    // the offer_maker needs to sign if they really want to cancel their offer
-    pub offer_maker: AccountInfo<'info>,
-
-    pub offer_taker: AccountInfo<'info>,
-
-    pub maker_mint: Account<'info, Mint>,
-
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
-    #[account(seeds = [b"data".as_ref()], bump = data_bump)]
-    pub data_acc: Account<'info, Data>,
+    #[account(seeds = [b"backup_data".as_ref()], bump)]
+    pub backup_data_acc: Account<'info, Data>,
 
     #[account(mut)]
     pub pda_rent: AccountInfo<'info>
