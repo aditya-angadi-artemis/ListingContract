@@ -1,0 +1,12 @@
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/spl_token-3ab11a6ea5760a43.so: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/error.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/instruction.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/native_mint.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/processor.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/state.rs
+
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/libspl_token-3ab11a6ea5760a43.rlib: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/error.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/instruction.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/native_mint.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/processor.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/state.rs
+
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/spl_token-3ab11a6ea5760a43.d: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/error.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/instruction.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/native_mint.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/processor.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/state.rs
+
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/lib.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/error.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/instruction.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/native_mint.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/processor.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/spl-token-3.2.0/src/state.rs:

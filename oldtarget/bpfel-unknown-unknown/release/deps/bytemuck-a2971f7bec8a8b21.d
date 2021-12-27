@@ -1,0 +1,12 @@
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/bytemuck-a2971f7bec8a8b21.rmeta: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/zeroable.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/pod.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/contiguous.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/offset_of.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/transparent.rs
+
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/libbytemuck-a2971f7bec8a8b21.rlib: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/zeroable.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/pod.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/contiguous.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/offset_of.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/transparent.rs
+
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/deps/bytemuck-a2971f7bec8a8b21.d: /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/lib.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/zeroable.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/pod.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/contiguous.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/offset_of.rs /root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/transparent.rs
+
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/lib.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/zeroable.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/pod.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/contiguous.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/offset_of.rs:
+/root/.cargo/registry/src/github.com-1ecc6299db9ec823/bytemuck-1.7.2/src/transparent.rs:

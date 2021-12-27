@@ -1,0 +1,1 @@
+/root/workspace/artemis_workspace/quid_pro_quo/quidproquo/target/bpfel-unknown-unknown/release/libquidproquo.rlib: /root/workspace/artemis_workspace/quid_pro_quo/quidproquo/programs/quidproquo/src/lib.rs
