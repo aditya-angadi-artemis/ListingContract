@@ -3,7 +3,6 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount},
 };
-use std::panic;
 use metaplex_token_metadata;
 
 declare_id!("8TmxZ2fp2a4bcpGL2asTGn5oSk1TEuWnxwHkDN13k137");
@@ -20,29 +19,19 @@ pub mod quidproquo {
         let data_acc = &mut ctx.accounts.data_acc;
         data_acc.market_place = ctx.accounts.beneficiary.key();
         data_acc.market_place_cut = mk_cut;
-        data_acc.pda_rent = ctx.accounts.pda_rent.key();
-
-        let backup_data_acc = &mut ctx.accounts.backup_data_acc;
-        backup_data_acc.market_place = ctx.accounts.beneficiary.key();
-        backup_data_acc.market_place_cut = mk_cut;
-        backup_data_acc.pda_rent = ctx.accounts.pda_rent.key();
 
         Ok(())
     }
 
-    // Make a binding offer of `offer_maker_amount` of one kind of tokens in
-    // exchange for `offer_taker_amount` of some other kind of tokens. This
-    // will store the offer maker's tokens in an escrow account.
+    //LIST FOR SALE
     pub fn make(
         ctx: Context<Make>,
         escrowed_maker_tokens_bump: u8,
-        offer_bump: u8,
+        _offer_bump: u8,
         offer_made_on: i64,
         offer_taker_amount: u64,
        
     ) -> ProgramResult {
-        // Store some state about the offer being made. We'll need this later if
-        // the offer gets accepted or cancelled.
         let offer = &mut ctx.accounts.offer;
         offer.maker = ctx.accounts.offer_maker.key();
         offer.taker_amount = offer_taker_amount;
@@ -51,7 +40,7 @@ pub mod quidproquo {
         offer.offer_made_on = offer_made_on;
         offer.expired = false;
 
-        // Transfer the maker's tokens to the escrow account.
+        // Transfer the NFT to the escrow account.
        
         anchor_spl::token::transfer(
             CpiContext::new(
@@ -70,7 +59,6 @@ pub mod quidproquo {
 
     pub fn update_offer(ctx: Context<Update>,  _offer_bump:u8, offer_made_on: i64, updated_offer_amount: u64, ) -> ProgramResult {
 
-        msg!("At the start of update_offer");
         let offer = &mut ctx.accounts.offer;
 
         if updated_offer_amount <= 0 {
@@ -86,29 +74,20 @@ pub mod quidproquo {
         Ok(())
     }
 
-
-    // Accept an offer by providing the right amount + kind of tokens. This
-    // unlocks the tokens escrowed by the offer maker.
-    pub fn accept(ctx: Context<Accept>, _offer_bump:u8, offer_made_on:i64, stick_bump:u8) -> ProgramResult {
+    //BUY token
+    pub fn accept(ctx: Context<Accept>, _offer_bump:u8, offer_made_on:i64) -> ProgramResult {
         
         
         let offer = &mut ctx.accounts.offer;
         offer.expired = true;
        let mut taker_amount = ctx.accounts.offer.taker_amount;
-       let stick = &mut ctx.accounts.stick;
-
-       stick.maker = *ctx.accounts.offer_maker.key;
-       stick.taker = *ctx.accounts.offer_taker.key;
-       stick.mint = *ctx.accounts.maker_mint.to_account_info().key;
-       stick.offer_made_on = offer_made_on;
 
 
-
-       // It is divide by 1000 since market place cut is already multiplied  by 10
+      
        let market_cut = ctx.accounts.data_acc.market_place_cut * taker_amount / 1000;
        
        let mut sfb:u16 = 0; 
-       //owned by system program
+      
        if ctx.accounts.token_metadata_account.owner == ctx.accounts.system_program.key && ctx.accounts.token_metadata_account.lamports() == 0 {
             sfb = 0;
        } else {
@@ -126,7 +105,6 @@ pub mod quidproquo {
                 }
             }
         }
-       //let sfb = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account)?.data.seller_fee_basis_points;
        let sfb_cut = sfb as u64 * taker_amount / 10000;
        taker_amount = taker_amount - (market_cut + sfb_cut);
 
@@ -165,7 +143,7 @@ pub mod quidproquo {
         )?;
 
         if sfb_cut > 0 {    
-          // stick those CPIs in here
+        
             if let Some(x) = metaplex_token_metadata::state::Metadata::from_account_info(&ctx.accounts.token_metadata_account)?.data.creators {
                 let mut y = 0;
 
@@ -273,7 +251,6 @@ pub mod quidproquo {
 
         }
 
-        // Transfer the maker's tokens (the ones they escrowed) to the taker.
             anchor_spl::token::transfer(
                             CpiContext::new_with_signer(
                                 ctx.accounts.token_program.to_account_info(),
@@ -287,12 +264,10 @@ pub mod quidproquo {
                                     &[ctx.accounts.offer.escrowed_maker_tokens_bump],
                                 ]],
                             ),
-                            // The amount here is just the entire balance of the escrow account.
+                           
                           1,
             )?;
-          
-            //Finally, close the escrow account and refund the maker (they paid for
-            // its rent-exemption).
+
             anchor_spl::token::close_account(CpiContext::new_with_signer(
                             ctx.accounts.token_program.to_account_info(),
                             anchor_spl::token::CloseAccount {
@@ -327,9 +302,6 @@ pub mod quidproquo {
                 anchor_spl::token::Transfer {
                     from: ctx.accounts.escrowed_maker_tokens.to_account_info(),
                     to: ctx.accounts.offer_makers_maker_tokens.to_account_info(),
-                    // Cute trick: the escrowed_maker_tokens is its own
-                    // authority/owner (and a PDA, so our program can sign for
-                    // it just below)
                     authority: ctx.accounts.escrowed_maker_tokens.to_account_info(),
                 },
                 &[&[
@@ -340,8 +312,6 @@ pub mod quidproquo {
             1,
         )?;
 
-        // Close the escrow's token account and refund the maker (they paid for
-        // its rent-exemption).
         anchor_spl::token::close_account(CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::CloseAccount {
@@ -356,26 +326,6 @@ pub mod quidproquo {
         ))
     }
 
-    pub fn close_offer_pda(ctx: Context<CloseOfferPDA>) -> ProgramResult {
-
-        if ctx.accounts.offer.expired != true {
-           return Err(ProgramError::Custom(0x8)); 
-        }
-        if *ctx.accounts.pda_rent.key != ctx.accounts.backup_data_acc.pda_rent {
-            return Err(ProgramError::Custom(0x11));
-        }
-
-        Ok(())
-    }
-
-    pub fn close_stick_pda(ctx: Context<CloseStickPDA>) -> ProgramResult {
-
-        if *ctx.accounts.pda_rent.key != ctx.accounts.backup_data_acc.pda_rent {
-            return Err(ProgramError::Custom(0x11));
-        }
-
-        Ok(())
-    }
 }
 
 
@@ -386,41 +336,22 @@ pub struct Data {
     
     pub market_place_cut: u64,
 
-    pub rent: Pubkey,
-
-    pub pda_rent: Pubkey,
-
 }
 
 #[account]
 pub struct Offer {
-    // We store the offer maker's key so that they can cancel the offer (we need
-    // to know who should sign).
+
     pub maker: Pubkey,
     
     pub taker_amount: u64,
 
     pub mint: Pubkey,
-    // When the maker makes their offer, we store their offered tokens in an
-    // escrow account that lives at a program-derived address, with seeds given
-    // by the `Offer` account's address. Storing the corresponding bump here
-    // means the client doesn't have to keep passing it.
+
     pub escrowed_maker_tokens_bump: u8,
 
     pub offer_made_on: i64,
 
     pub expired: bool
-}
-
-#[account]
-pub struct Stick {
-    pub maker: Pubkey,
-
-    pub mint: Pubkey,
-
-    pub taker: Pubkey,
-
-    pub offer_made_on: i64,
 }
 
 #[derive(Accounts)]
@@ -429,9 +360,6 @@ pub struct Stick {
 pub struct Initialize<'info> {
     #[account(init, payer=payer, seeds = [b"data".as_ref()], bump = data_bump, space = 8 + 32 + 8 + 32 + 64 + 8)]
     pub data_acc: Account<'info, Data>,
-
-    #[account(init, payer=payer, seeds = [b"backup_data".as_ref()], bump, space = 8 + 32 + 8 + 32 + 64 + 8)]
-    pub backup_data_acc: Account<'info, Data>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -443,8 +371,6 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
-    pub pda_rent: AccountInfo<'info>,
-
 }
 
 #[derive(Accounts)]
@@ -453,7 +379,7 @@ pub struct Make<'info> {
     #[account(init, payer = offer_maker, 
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()], 
         bump = offer_bump,  
-        space = 650)]
+        space = 300)]
     pub offer: Account<'info, Offer>,
 
     #[account(mut)]
@@ -461,17 +387,12 @@ pub struct Make<'info> {
     #[account(mut, constraint = offer_makers_maker_tokens.mint == maker_mint.key())]
     pub offer_makers_maker_tokens: Account<'info, TokenAccount>,
 
-    // This is where we'll store the offer maker's tokens.
     #[account(
         init,
         payer = offer_maker,
         seeds = [offer.key().as_ref()],
         bump = escrowed_maker_tokens_bump,
         token::mint = maker_mint,
-        // We want the program itself to have authority over the escrow token
-        // account, so we need to use some program-derived address here. Well,
-        // the escrow token account itself already lives at a program-derived
-        // address, so we can set its authority to be its own address.
         token::authority = escrowed_maker_tokens,
     )]
     pub escrowed_maker_tokens: Account<'info, TokenAccount>,
@@ -493,7 +414,6 @@ pub struct Update<'info> {
         mut,
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = offer_bump,
-        // make sure the offer_maker account really is whoever made the offer!
         constraint = offer.maker == *offer_maker.key,
     )]
     pub offer: Account<'info, Offer>,
@@ -517,21 +437,11 @@ pub struct Accept<'info> {
         mut,
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = offer_bump,
-        // make sure the offer_maker account really is whoever made the offer!
         constraint = offer.maker == *offer_maker.key,
-        // at the end of the instruction, close the offer account (don't need it
-        // anymore) and send its rent back to the offer_maker
+        close = offer_maker
+
     )]
     pub offer: Box<Account<'info, Offer>>,
-
-    #[account(init, 
-        payer = offer_taker, 
-        seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_taker.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
-        bump = stick_bump,
-        space = 1050)]
-    pub stick: Box<Account<'info, Stick>>,
-
-
 
     #[account(
         mut,
@@ -591,19 +501,15 @@ pub struct Cancel<'info> {
         mut,
         seeds = [offer_maker.to_account_info().key.as_ref(), maker_mint.to_account_info().key.as_ref(), offer_made_on.to_be_bytes().as_ref()],
         bump = offer_bump,
-        // make sure the offer_maker account really is whoever made the offer!
         constraint = offer.maker == *offer_maker.key,
-        // at the end of the instruction, close the offer account (don't need it
-        // anymore) and send its rent lamports back to the offer_maker
+        close = offer_maker
     )]
     pub offer: Account<'info, Offer>,
 
     #[account(mut)]
-    // the offer_maker needs to sign if they really want to cancel their offer
     pub offer_maker: Signer<'info>,
 
     #[account(mut)]
-    // this is where to send the previously-escrowed tokens to
     pub offer_makers_maker_tokens: Account<'info, TokenAccount>,
 
     pub maker_mint: Account<'info, Mint>,
@@ -626,51 +532,3 @@ pub struct Cancel<'info> {
 }
 
 
-#[derive(Accounts)]
-#[instruction()]
-pub struct CloseOfferPDA<'info> {
-    #[account(
-        mut,
-        seeds = [offer.maker.as_ref(), offer.mint.as_ref(), offer.offer_made_on.to_be_bytes().as_ref()],
-        bump,
-        // make sure the offer_maker account really is whoever made the offer!
-        // at the end of the instruction, close the offer account (don't need it
-        // anymore) and send its rent lamports back to the offer_maker
-        close = pda_rent,
-    )]
-    pub offer: Account<'info, Offer>,
-
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-
-    #[account(seeds = [b"backup_data".as_ref()], bump)]
-    pub backup_data_acc: Account<'info, Data>,
-
-    #[account(mut)]
-    pub pda_rent: AccountInfo<'info>
-}
-
-
-#[derive(Accounts)]
-#[instruction()]
-pub struct CloseStickPDA<'info> {
-    #[account(
-        mut,
-        seeds = [stick.maker.as_ref(), stick.mint.as_ref(), stick.taker.as_ref(), stick.offer_made_on.to_be_bytes().as_ref()],
-        bump,
-        // make sure the offer_maker account really is whoever made the offer!
-        // at the end of the instruction, close the offer account (don't need it
-        // anymore) and send its rent lamports back to the offer_maker
-        close = pda_rent,
-    )]
-    pub stick: Account<'info, Stick>,
-
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-
-    #[account(seeds = [b"backup_data".as_ref()], bump)]
-    pub backup_data_acc: Account<'info, Data>,
-
-    #[account(mut)]
-    pub pda_rent: AccountInfo<'info>
-}
